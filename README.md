@@ -10,7 +10,7 @@
 3. Once the docker image is installed and the container is running, the n8n editor can be accessed at - http://localhost:5678
 4. Install postgres and PgAdmin4 on local
 5. Create agent_db database and execute the following sql script - https://github.com/amitxpamecha/medicare-stats/blob/main/medicare_stats_table_create_query.sql  
-9. Checkout the repo xml file and import in the workflow
+9. Checkout the workflow file https://github.com/amitxpamecha/medicare-stats/blob/main/Medicare_Data_Workflow.json
 10. Import the workflow as given in below screenshot -
 
  ![image](https://github.com/user-attachments/assets/7ae86573-f884-4767-892d-cd2dbc0b7efe)
