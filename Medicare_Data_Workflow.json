@@ -1,0 +1,336 @@
+{
+  "name": "Medicare Data Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        15
+      ],
+      "id": "1d7d231c-12f3-4ae1-99ff-381c9322d3db",
+      "name": "When chat message received",
+      "webhookId": "512e1c96-2e27-487d-bd0d-e6fc6b5bcd4e"
+    },
+    {
+      "parameters": {
+        "url": "https://www.medicare.gov/api/care-compare/geocode/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json['chatInput'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        15
+      ],
+      "id": "4f98e940-760b-4c9f-8b9f-ee34cbd355e5",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.medicare.gov/api/care-compare/provider",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"type\": \"NursingHome\", \"filters\": {\"radiusSearch\": {\"coordinates\": {\"lon\": {{$json['lon'] }}, \"lat\": {{$json['lat'] }}}, \"radius\" :25}}, \"page\" :1, \"limit\" :15, \"returnAllResults\": false, \"sort\": [\"closest\", \"rank\", \"alpha\"]}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        15
+      ],
+      "id": "fa4dd93c-5a7a-467d-b715-2b1119a1b33e",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "data = _input.all()[0].json['results']\n\nproviders = []\nfor element in data:\n    provider_id = element['providerId']\n    provider_name = element['name']\n    key = provider_id + \"#\" + provider_name\n    providers.append(key)\n\nflat_list = []\nfor provider in providers:\n  flat_list.append({\n    \"provider_id\": provider.split('#')[0],\n    \"provider_name\": provider.split('#')[1],\n    \"url\": f'https://www.medicare.gov/api/care-compare/measures/nursing-home/{provider.split('#')[0]}'\n\n  })\nreturn flat_list"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        15
+      ],
+      "id": "4707907a-cf75-4211-9189-7a4ad47670e5",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        880,
+        15
+      ],
+      "id": "a6e7a546-01f2-4fae-8973-f9223958fc17",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json['url'] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        -60
+      ],
+      "id": "87584bef-96ef-4542-8c0d-8e67076dbeff",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1320,
+        15
+      ],
+      "id": "74edacdc-1702-4c73-a36d-4798d29bbb48",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "items = _input.all()\n\nprovider_statistics = {}\n\nprovider_statistics[\"provider_id\"] = items[1].get(\"json\").get(\"provider_id\")\n\nprovider_statistics[\"provider_name\"] = items[1].get(\"json\").get(\"provider_name\")\n\nprovider_statistics[\"totalhealthDeficiencyValue\"] = items[0].get(\"json\").get(\"healthInspection\")[0].get(\"value\")\n\nprovider_statistics[\"totalhealthDeficiencyStateValue\"] = items[0].get(\"json\").get(\"healthInspection\")[0].get(\"stateValue\")\n\nprovider_statistics[\"totalhealthDeficiencyNationalValue\"] = items[0].get(\"json\").get(\"healthInspection\")[0].get(\"nationalValue\")\n\nreturn provider_statistics"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        20
+      ],
+      "id": "546e4951-af9f-4ef1-bddb-8ce81a002485",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "medicare_stats",
+          "mode": "list",
+          "cachedResultName": "medicare_stats"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider_id": "={{ $json['provider_id'] }}",
+            "provider_name": "={{ $json['provider_name'] }}",
+            "totalhealthDeficiencyStateValue": "={{ $json['totalhealthDeficiencyStateValue'] }}",
+            "totalhealthDeficiencyNationalValue": "={{ $json['totalhealthDeficiencyNationalValue'] }}",
+            "totalhealthDeficiencyValue": "={{ $json['totalhealthDeficiencyValue'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "provider_id",
+              "displayName": "provider_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "provider_name",
+              "displayName": "provider_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalhealthDeficiencyValue",
+              "displayName": "totalhealthDeficiencyValue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalhealthDeficiencyStateValue",
+              "displayName": "totalhealthDeficiencyStateValue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalhealthDeficiencyNationalValue",
+              "displayName": "totalhealthDeficiencyNationalValue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1760,
+        20
+      ],
+      "id": "a1a02e94-97cd-4f8f-ae68-2cc6f4f0af99",
+      "name": "Postgres",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "PjeynoH5QSKTDzxA",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "81788d10-d674-4b60-bd50-6a284737ccf1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6a4a1671b755877d40106b299f6ee5fa901615f6c38d66c8e1b885bf339e34f9"
+  },
+  "id": "JrN9vgox6FwT78gb",
+  "tags": []
+}
